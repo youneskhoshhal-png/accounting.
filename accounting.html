@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>حسابداری ساده</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--tx:#1d2330;--mu:#6b7385;--pr:#0f766e;--pt:#fff;--bd:#e2e5ea;--rd:#c0392b;--gn:#15803d;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#13161c;--card:#1c212b;--tx:#e8ebf0;--mu:#99a1b3;--pr:#2dd4bf;--pt:#06201c;--bd:#2b3240;--rd:#f08b7e;--gn:#4ade80}}
+:root[data-theme="dark"]{--bg:#13161c;--card:#1c212b;--tx:#e8ebf0;--mu:#99a1b3;--pr:#2dd4bf;--pt:#06201c;--bd:#2b3240;--rd:#f08b7e;--gn:#4ade80}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:Vazirmatn,Tahoma,"Segoe UI",sans-serif;font-size:15px;padding-bottom:76px}
+main{max-width:640px;margin:0 auto;padding:14px}
+h2{font-size:17px;margin:4px 0 12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.stat{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px}
+.stat small{color:var(--mu);display:block;margin-bottom:4px}
+.stat b{font-size:16px}
+input,select{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit;margin-bottom:8px}
+button{font:inherit;border:0;border-radius:8px;padding:10px 14px;background:var(--pr);color:var(--pt);cursor:pointer}
+button.g{background:transparent;color:var(--rd);padding:4px 8px}
+button.o{background:transparent;color:var(--pr);border:1px solid var(--pr)}
+button.o.on{background:var(--pr);color:var(--pt)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)}
+.row:last-child{border:0}
+.mu{color:var(--mu);font-size:13px}
+.neg{color:var(--rd)}.pos{color:var(--gn)}
+.two{display:flex;gap:8px}.two>*{flex:1}
+.seg{display:flex;gap:8px;margin-bottom:10px}.seg button{flex:1}
+.tag{font-size:11px;border:1px solid var(--bd);border-radius:6px;padding:1px 6px;color:var(--mu);margin-inline-start:4px}
+nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--bd);display:flex;padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;background:transparent;color:var(--mu);border-radius:0;padding:12px 2px;font-size:12.5px}
+nav button.on{color:var(--pr);font-weight:bold}
+@media print{nav,.noprint{display:none!important}body{background:#fff;color:#000}}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<nav id="nav"></nav>
+<script>
+const $=s=>document.querySelector(s);
+let db={persons:[],items:[],invoices:[],txs:[],open:{m:0,r:0}};
+try{const r=localStorage.getItem('acc2');if(r)db=Object.assign(db,JSON.parse(r))}catch(e){}
+const save=()=>{try{localStorage.setItem('acc2',JSON.stringify(db))}catch(e){}};
+const n=x=>Number(x||0).toLocaleString('fa-IR');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dt=d=>new Date(d).toLocaleDateString('fa-IR');
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+const v=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
+const num=id=>Number(v(id).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))||0;
+const sum=(a,f)=>a.reduce((x,y)=>x+f(y),0);
+const pname=id=>{const p=db.persons.find(p=>p.id===id);return p?p.name:'متفرقه'};
+const typeL={c:'مشتری',s:'تامین‌کننده',b:'مشتری و تامین‌کننده'};
+const banks=[['m','ملت'],['r','رسالت']];
+const bname=k=>(banks.find(b=>b[0]===k)||[0,'—'])[1];
+const bopts=banks.map(([k,l])=>`<option value="${k}">${l}</option>`).join('');
+const bankBal=k=>(db.open[k]||0)+sum(db.txs.filter(t=>t.acct===k),t=>t.kind==='in'?t.amount:-t.amount);
+function setOpen(){db.open.m=num('om');db.open.r=num('or');save();render()}
+let tab='home',sel='',ik='sale',mk='in',cart=[],mf='',vi='';
+const tabs=[['home','داشبورد'],['pers','اشخاص'],['items','کالا و خدمات'],['inv','فاکتور'],['money','واریز و پرداخت']];
+/* مانده: مثبت = شخص به ما بدهکار است، منفی = ما به او بدهکاریم */
+const bal=id=>sum(db.invoices.filter(i=>i.pid===id),i=>i.kind==='sale'?i.total:-i.total)-sum(db.txs.filter(t=>t.pid===id),t=>t.kind==='in'?t.amount:-t.amount);
+const balTxt=b=>b===0?'<span class="pos">تسویه</span>':b>0?`<span class="neg">بدهکار ${n(b)}</span>`:`<span class="pos">بستانکار ${n(-b)}</span>`;
+const popts=(s)=>db.persons.map(p=>`<option value="${p.id}" ${p.id===s?'selected':''}>${esc(p.name)}</option>`).join('');
+const go=t=>{tab=t;render()};
+function render(){
+  $('#nav').innerHTML=tabs.map(([k,l])=>`<button class="${k===tab?'on':''}" onclick="go('${k}')">${l}</button>`).join('');
+  $('#app').innerHTML=views[tab]();
+  if(tab==='inv')fillPrice();
+}
+const views={
+home(){
+  const bs=db.persons.map(p=>bal(p.id));
+  const low=db.items.filter(i=>i.kind==='good'&&i.stock<=3);
+  return `<h2>حساب‌های بانکی</h2><div class="grid">${banks.map(([k,l])=>`<div class="stat"><small>حساب ${l}</small><b class="${bankBal(k)<0?'neg':''}">${n(bankBal(k))}</b></div>`).join('')}</div><h2>خلاصه وضعیت</h2><div class="grid">
+  <div class="stat"><small>جمع واریز (دریافتی)</small><b class="pos">${n(sum(db.txs.filter(t=>t.kind==='in'),t=>t.amount))}</b></div>
+  <div class="stat"><small>جمع پرداخت</small><b class="neg">${n(sum(db.txs.filter(t=>t.kind==='out'),t=>t.amount))}</b></div>
+  <div class="stat"><small>جمع فروش</small><b>${n(sum(db.invoices.filter(i=>i.kind==='sale'),i=>i.total))}</b></div>
+  <div class="stat"><small>جمع خرید</small><b>${n(sum(db.invoices.filter(i=>i.kind==='buy'),i=>i.total))}</b></div>
+  <div class="stat"><small>طلب از اشخاص</small><b>${n(sum(bs.filter(b=>b>0),b=>b))}</b></div>
+  <div class="stat"><small>بدهی به اشخاص</small><b>${n(-sum(bs.filter(b=>b<0),b=>b))}</b></div></div>
+  <div class="card"><b>کالاهای کم‌موجودی</b>${low.length?low.map(i=>`<div class="row"><span>${esc(i.name)}</span><span class="neg">${n(i.stock)} عدد</span></div>`).join(''):'<p class="mu">موردی نیست.</p>'}</div>
+  <div class="card"><b>پشتیبان‌گیری</b><p class="mu">«گرفتن بک‌آپ» متن داده‌ها را می‌دهد. آن را جای امنی (مثلاً پیام‌های ذخیره‌شده) نگه دارید. برای بازیابی، متن را در کادر بگذارید و «بازیابی» را بزنید.</p><div class="two"><button onclick="bk()">گرفتن بک‌آپ</button><button class="o" onclick="rs()">بازیابی</button></div><textarea id="bt" dir="ltr" rows="4" style="width:100%;margin-top:8px" placeholder="متن بک‌آپ"></textarea><p id="bm" class="mu"></p></div><p class="mu">مبالغ به تومان است. داده‌ها فقط روی همین گوشی ذخیره می‌شوند.</p>`},
+pers(){
+  return `<h2>معرفی اشخاص</h2><div class="card"><input id="pn" placeholder="نام شخص یا شرکت"><div class="two"><input id="pp" type="tel" placeholder="تلفن"><select id="pt"><option value="c">مشتری</option><option value="s">تامین‌کننده</option><option value="b">هر دو</option></select></div><input id="pa" placeholder="آدرس / توضیحات (اختیاری)"><button onclick="addPerson()">افزودن شخص</button></div>
+  <div class="card">${db.persons.length?db.persons.map(p=>`<div class="row" style="flex-wrap:wrap"><span onclick="sel=sel==='${p.id}'?'':'${p.id}';render()" style="cursor:pointer"><b>${esc(p.name)}</b><span class="tag">${typeL[p.type]}</span><br><span class="mu">${esc(p.phone||'')} ${esc(p.note||'')}</span></span><span>${balTxt(bal(p.id))} <button class="g" onclick="del('persons','${p.id}')">حذف</button></span>${sel===p.id?stmt(p.id):''}</div>`).join(''):'<p class="mu">شخصی ثبت نشده.</p>'}</div>`},
+items(){
+  return `<h2>کالا و خدمات</h2><div class="card"><input id="in" placeholder="نام کالا یا خدمت"><div class="two"><select id="ik"><option value="good">کالا</option><option value="service">خدمت</option></select><input id="ip" type="number" inputmode="numeric" placeholder="قیمت"></div><input id="is" type="number" inputmode="numeric" placeholder="موجودی اولیه (فقط کالا)"><button onclick="addItem()">افزودن</button></div>
+  <div class="card">${db.items.length?db.items.map(i=>`<div class="row" style="flex-wrap:wrap"><span>${esc(i.name)}<span class="tag">${i.kind==='good'?'کالا':'خدمت'}</span><br><span class="mu">${n(i.price)} تومان</span></span><span>${i.kind==='good'?n(i.stock)+' عدد':''} <button class="g" onclick="del('items','${i.id}')">حذف</button></span>${i.kind==='good'?`<div class="two" style="width:100%"><input id="ad${i.id}" type="number" inputmode="numeric" placeholder="تعداد (برای کم کردن منفی بزنید)"><button class="o" onclick="adj('${i.id}')">اعمال روی موجودی</button></div>`:''}</div>`).join(''):'<p class="mu">موردی ثبت نشده.</p>'}</div>`},
+inv(){
+  if(vi)return invView(vi);const ct=sum(cart,l=>l.qty*l.price);
+  return `<h2>فاکتور</h2><div class="card"><div class="seg"><button class="o ${ik==='sale'?'on':''}" onclick="ik='sale';render()">فروش</button><button class="o ${ik==='buy'?'on':''}" onclick="ik='buy';render()">خرید</button></div>
+  <select id="ipn"><option value="">${ik==='sale'?'مشتری متفرقه':'تامین‌کننده متفرقه'}</option>${popts(v('ipn'))}</select>
+  <select id="sp" onchange="fillPrice()">${db.items.map(i=>`<option value="${i.id}">${esc(i.name)} ${i.kind==='good'?'('+n(i.stock)+')':'(خدمت)'}</option>`).join('')||'<option value="">ابتدا کالا یا خدمت اضافه کنید</option>'}</select>
+  <div class="two"><input id="sq" type="number" inputmode="numeric" value="1" min="1"><input id="lp" type="number" inputmode="numeric" placeholder="قیمت واحد"></div>
+  <button onclick="addLine()">افزودن ردیف</button>
+  ${cart.map((l,i)=>`<div class="row"><span>${esc(l.name)} × ${n(l.qty)}</span><span>${n(l.qty*l.price)} <button class="g" onclick="cart.splice(${i},1);render()">حذف</button></span></div>`).join('')}
+  <div class="row"><b>جمع کل</b><b>${n(ct)}</b></div>
+  <select id="ib">${bopts}</select><input id="pd" type="number" inputmode="numeric" placeholder="مبلغ ${ik==='sale'?'دریافتی':'پرداختی'} همزمان (خالی = نسیه؛ برای متفرقه خالی = نقدی)">
+  <button onclick="saveInv()">ثبت فاکتور</button></div>
+  <h2>فاکتورهای اخیر</h2><div class="card">${db.invoices.length?db.invoices.slice().reverse().slice(0,30).map(i=>`<div class="row"><span>${esc(pname(i.pid))}<span class="tag">${i.kind==='sale'?'فروش':'خرید'}</span><br><span class="mu">${dt(i.date)}</span></span><span>${n(i.total)} <button class="g" style="color:var(--pr)" onclick="vi='${i.id}';render()">مشاهده</button><button class="g" onclick="delInv('${i.id}')">حذف</button></span></div>`).join(''):'<p class="mu">فاکتوری ثبت نشده.</p>'}</div>`},
+money(){
+  return `<h2>واریز و پرداخت</h2><div class="card"><b>موجودی اولیه حساب‌ها</b><div class="two" style="margin-top:8px"><input id="om" type="number" inputmode="numeric" placeholder="ملت" value="${db.open.m||''}"><input id="or" type="number" inputmode="numeric" placeholder="رسالت" value="${db.open.r||''}"></div><button class="o" onclick="setOpen()">ذخیره موجودی اولیه</button></div><div class="card"><div class="seg"><button class="o ${mk==='in'?'on':''}" onclick="mk='in';render()">واریز (دریافت)</button><button class="o ${mk==='out'?'on':''}" onclick="mk='out';render()">پرداخت</button></div>
+  <select id="mb">${bopts}</select><select id="mp"><option value="">انتخاب شخص</option>${popts('')}</select><input id="ma" type="number" inputmode="numeric" placeholder="مبلغ"><input id="mn" placeholder="شرح (اختیاری)"><button onclick="addTx()">ثبت ${mk==='in'?'واریز':'پرداخت'}</button></div>
+  <div class="card"><select onchange="mf=this.value;render()"><option value="">همه حساب‌ها</option>${banks.map(([k,l])=>`<option value="${k}" ${mf===k?'selected':''}>${l}</option>`).join('')}</select><div class="row"><span>جمع واریز: <b class="pos">${n(sum(fx(),t=>t.kind==='in'?t.amount:0))}</b></span><span>جمع پرداخت: <b class="neg">${n(sum(fx(),t=>t.kind==='out'?t.amount:0))}</b></span></div>${fx().length?fx().slice().reverse().map(t=>`<div class="row"><span>${esc(pname(t.pid))}<span class="tag">${t.kind==='in'?'واریز':'پرداخت'}</span><span class="tag">${bname(t.acct)}</span><br><span class="mu">${dt(t.date)} ${esc(t.note||'')}</span></span><span class="${t.kind==='in'?'pos':'neg'}">${n(t.amount)} <button class="g" onclick="del('txs','${t.id}')">حذف</button></span></div>`).join(''):'<p class="mu">تراکنشی ثبت نشده.</p>'}</div>`}
+};
+function stmt(id){
+  const rows=[...db.invoices.filter(i=>i.pid===id).map(i=>({d:i.date,t:(i.kind==='sale'?'فاکتور فروش':'فاکتور خرید'),a:i.total})),...db.txs.filter(t=>t.pid===id).map(t=>({d:t.date,t:t.kind==='in'?'واریز':'پرداخت',a:t.amount}))].sort((a,b)=>b.d-a.d);
+  return `<div style="width:100%;background:var(--bg);border-radius:8px;padding:6px 10px">${rows.length?rows.map(r=>`<div class="row mu"><span>${dt(r.d)} · ${r.t}</span><span>${n(r.a)}</span></div>`).join(''):'<span class="mu">گردشی ندارد.</span>'}</div>`;
+}
+function adj(id){const it=db.items.find(i=>i.id===id),q=num('ad'+id);if(!it||!q)return;it.stock+=q;save();render()}
+const fx=()=>db.txs.filter(t=>!mf||t.acct===mf);
+function invView(id){const i=db.invoices.find(x=>x.id===id);if(!i){vi='';return views.inv()}
+return `<div class="card"><h2>فاکتور ${i.kind==='sale'?'فروش':'خرید'}</h2><p class="mu">${dt(i.date)} · ${esc(pname(i.pid))}</p>${i.items.map(l=>`<div class="row"><span>${esc(l.name)} × ${n(l.qty)}</span><span>${n(l.qty*l.price)}</span></div>`).join('')}<div class="row"><b>جمع کل</b><b>${n(i.total)} تومان</b></div></div><div class="two noprint"><button onclick="window.print()">چاپ</button><button class="o" onclick="copyInv('${i.id}')">کپی متن</button><button class="o" onclick="vi='';render()">بازگشت</button></div><p id="cm" class="mu noprint"></p>`}
+function copyInv(id){const i=db.invoices.find(x=>x.id===id);if(!i)return;const t=`فاکتور ${i.kind==='sale'?'فروش':'خرید'} - ${dt(i.date)}\n${pname(i.pid)}\n`+i.items.map(l=>`${l.name} × ${n(l.qty)} = ${n(l.qty*l.price)}`).join('\n')+`\nجمع کل: ${n(i.total)} تومان`;const m=document.getElementById('cm');const fb=()=>{if(m)m.innerHTML='<textarea readonly rows="5" style="width:100%" onfocus="this.select()">'+esc(t)+'</textarea>'};try{navigator.clipboard.writeText(t).then(()=>{if(m)m.textContent='کپی شد.'},fb)}catch(e){fb()}}
+function bk(){const t=JSON.stringify(db),e=$('#bt'),m=$('#bm');e.value=t;e.select();try{navigator.clipboard.writeText(t).then(()=>{m.textContent='کپی شد. این متن را جای امنی نگه دارید.'},()=>{m.textContent='متن را انتخاب و کپی کنید.'})}catch(x){m.textContent='متن را انتخاب و کپی کنید.'}}
+function rs(){try{const d=JSON.parse($('#bt').value);if(!d.persons||!d.txs||!d.items||!d.invoices)throw 0;if(!confirm('اطلاعات فعلی با بک‌آپ جایگزین شود؟'))return;db=Object.assign({open:{m:0,r:0}},d);save();render()}catch(e){$('#bm').textContent='متن بک‌آپ معتبر نیست.'}}
+function fillPrice(){const i=db.items.find(i=>i.id===v('sp')),e=$('#lp');if(i&&e)e.value=i.price}
+function addPerson(){const name=v('pn');if(!name)return;db.persons.push({id:uid(),name,phone:v('pp'),type:v('pt'),note:v('pa')});save();render()}
+function addItem(){const name=v('in');if(!name)return;db.items.push({id:uid(),name,kind:v('ik'),price:num('ip'),stock:v('ik')==='good'?num('is'):0});save();render()}
+function addTx(){const pid=v('mp'),amount=num('ma');if(!pid||amount<=0)return;db.txs.push({id:uid(),date:Date.now(),pid,kind:mk,amount,note:v('mn'),acct:v('mb')});save();render()}
+function addLine(){
+  const it=db.items.find(i=>i.id===v('sp')),q=num('sq');if(!it||q<=0)return;
+  if(ik==='sale'&&it.kind==='good'&&sum(cart.filter(l=>l.iid===it.id),l=>l.qty)+q>it.stock){alert('موجودی کافی نیست.');return}
+  const keep=v('ipn');cart.push({iid:it.id,name:it.name,kind:it.kind,qty:q,price:num('lp')});render();$('#ipn').value=keep;
+}
+function saveInv(){
+  if(!cart.length)return;
+  const pid=v('ipn'),total=sum(cart,l=>l.qty*l.price),pd=Math.min(v('pd')===''&&!pid?total:num('pd'),total);
+  cart.forEach(l=>{const it=db.items.find(i=>i.id===l.iid);if(it&&it.kind==='good')it.stock+=ik==='sale'?-l.qty:l.qty});
+  db.invoices.push({id:uid(),date:Date.now(),pid,kind:ik,items:cart,total});
+  if(pd>0)db.txs.push({id:uid(),date:Date.now(),pid,kind:ik==='sale'?'in':'out',amount:pd,note:'همراه فاکتور',acct:v('ib')});
+  cart=[];save();render();
+}
+function delInv(id){
+  const i=db.invoices.find(x=>x.id===id);if(!i||!confirm('فاکتور حذف شود؟ موجودی برمی‌گردد.'))return;
+  i.items.forEach(l=>{const it=db.items.find(x=>x.id===l.iid);if(it&&it.kind==='good')it.stock+=i.kind==='sale'?l.qty:-l.qty});
+  db.invoices=db.invoices.filter(x=>x.id!==id);save();render();
+}
+function del(k,id){if(!confirm('حذف شود؟'))return;db[k]=db[k].filter(x=>x.id!==id);save();render()}
+render();
+</script>
+</body>
+</html>
