@@ -35,6 +35,10 @@ nav button{flex:1;background:transparent;color:var(--mu);border-radius:0;padding
 nav button.on{color:var(--pr);font-weight:bold}
 @media print{nav,.noprint{display:none!important}body{background:#fff;color:#000}}
 </style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f766e">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 </head>
 <body>
 <main id="app"></main>
@@ -141,6 +145,7 @@ function delInv(id){
 }
 function del(k,id){if(!confirm('حذف شود؟'))return;db[k]=db[k].filter(x=>x.id!==id);save();render()}
 render();
+try{if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js')}catch(e){}
 </script>
 </body>
 </html>
